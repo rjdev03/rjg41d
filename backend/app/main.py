@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from typing import Annotated
@@ -30,7 +31,9 @@ app.add_middleware(
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data" / "raw"
+DATA_DIR = Path(
+    os.getenv("DATA_DIR", PROJECT_ROOT / "data" / "raw")
+)
 
 FORECAST_FILE = DATA_DIR / "windfor-2026-01.json"
 ACTUAL_FILE = DATA_DIR / "fuelhh-wind-2026-01.json"

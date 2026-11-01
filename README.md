@@ -1,40 +1,257 @@
 # Wind Forecast Analytics
 
-A decision-support dashboard for exploring UK wind generation forecasts
-and evaluating forecast accuracy against actual generation.
+A decision-support dashboard for exploring UK national wind generation forecasts and evaluating forecast accuracy against actual generation.
 
-## Status
+The application uses historical data from **Elexon BMRS** to compare wind generation forecasts with actual generation for January 2026. It provides hourly forecast-versus-actual analysis, forecast error metrics, and data availability information.
 
-Under development.
+## Project Overview
 
-## Technology
+The application addresses two questions relevant to a day-ahead electricity procurement team:
 
-- Frontend: React, TypeScript, Vite
-- Backend: Python, FastAPI
-- Analysis: pandas, NumPy
-- Data source: Elexon BMRS
+1. What wind generation forecasts were available at the assumed procurement decision cutoff?
+2. How accurately did those forecasts predict actual wind generation?
 
-## Project structure
+The analysis selects the latest forecast published on or before the decision cutoff for each delivery hour. Forecasts published after that cutoff are excluded to avoid look-ahead bias.
 
-- `frontend/` — React application
-- `backend/` — API and analysis logic
-- `scripts/` — Data inspection and preparation
-- `data/` — Local datasets, excluded from Git by default
-- `docs/` — Data assumptions and design decisions
+**Scope:** National-level wind generation only, using Elexon BMRS data for January 2026.
 
-## Development
+## Features
 
-Setup instructions will be added after the initial environment
-and data-discovery steps are complete.
+- January 2026 delivery-date selection.
+- Hourly wind generation forecast versus actual comparison.
+- Forecast error analysis in MW.
+- Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and forecast bias.
+- Data availability and evaluation coverage indicators.
+- Historical forecast selection based on publication timestamps.
+- Interactive dashboard with charts, metric cards, and hourly data table.
 
-## Data and limitations
+## Technology Stack
 
-The analysis uses historical wind forecasts and actual generation.
-Forecast accuracy alone does not determine an optimal electricity
-procurement decision.
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, TypeScript, Vite |
+| Styling | Tailwind CSS 4 |
+| Charts | Recharts |
+| Backend | Python 3.12, FastAPI |
+| Data analysis | pandas, NumPy |
+| Testing | pytest, Ruff |
+| Containerization | Docker, Docker Compose |
+| Data source | Elexon BMRS |
 
-## AI assistance
+## Project Structure
 
-AI tools were used during development for planning, implementation
-guidance, and/or code assistance. Specific usage will be documented
-before submission.
+```text
+.
+├── backend/
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── analytics.py
+│   │   └── main.py
+│   ├── tests/
+│   │   ├── test_analytics.py
+│   │   └── test_api.py
+│   ├── Dockerfile
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── CoveragePanel.tsx
+│   │   │   ├── DashboardHeader.tsx
+│   │   │   ├── GenerationChart.tsx
+│   │   │   ├── HourlyGenerationTable.tsx
+│   │   │   └── MetricCard.tsx
+│   │   ├── App.tsx
+│   │   ├── index.css
+│   │   ├── main.tsx
+│   │   └── types.ts
+│   ├── public/
+│   ├── .env.example
+│   ├── Dockerfile
+│   ├── README.md
+│   ├── package.json
+│   ├── pnpm-lock.yaml
+│   └── vite.config.ts
+│
+├── data/
+│   └── raw/
+│       ├── windfor-2026-01.json
+│       └── fuelhh-wind-2026-01.json
+│
+├── scripts/
+│   ├── ingest_january_data.py
+│   ├── inspect_elexon.py
+│   └── validate_january_forecasts.py
+│
+├── .dockerignore
+├── .editorconfig
+├── .env.example
+├── .gitignore
+├── compose.yaml
+└── README.md
+```
+
+### Key files
+
+- `backend/app/main.py` — FastAPI application, API endpoints, dataset loading, and delivery-date handling.
+- `backend/app/analytics.py` — Forecast selection, hourly actual aggregation, error calculation, and accuracy metrics.
+- `backend/tests/` — Backend analytics and API tests.
+- `frontend/src/App.tsx` — Main dashboard and API integration.
+- `frontend/src/components/` — Dashboard components for charts, metrics, coverage, and hourly data.
+- `frontend/.env.example` — Example frontend environment configuration.
+- `scripts/ingest_january_data.py` — Retrieves and prepares January 2026 Elexon data.
+- `scripts/validate_january_forecasts.py` — Validates forecast and actual data coverage.
+- `scripts/inspect_elexon.py` — Helps inspect Elexon API responses.
+- `backend/Dockerfile`, `frontend/Dockerfile`, and `compose.yaml` — Container build and local application orchestration.
+
+## Data Sources
+
+The application uses two Elexon BMRS datasets:
+
+### WINDFOR — Wind Generation Forecasts
+
+[WINDFOR API documentation](https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/WINDFOR/stream)
+
+Relevant fields:
+
+- `startTime` — Target delivery timestamp.
+- `publishTime` — Time the forecast was published.
+- `generation` — Forecast wind generation in MW.
+
+### FUELHH — Actual Generation
+
+[FUELHH API documentation](https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/FUELHH/stream)
+
+Relevant fields:
+
+- `startTime` — Actual generation timestamp.
+- `fuelType` — Used to select `WIND`.
+- `generation` — Actual wind generation in MW.
+
+The prepared datasets are stored under `data/raw/`.
+
+## Analysis Methodology
+
+### Forecast selection
+
+For each delivery hour, the application selects the latest forecast whose `publishTime` is at or before the decision cutoff.
+
+This ensures that the evaluation uses only information that would have been available at the assumed decision time and avoids look-ahead bias.
+
+Forecast records are selected by delivery timestamp, not by publication month. Consequently, forecasts published in December 2025 may be required to evaluate January 1, 2026 delivery periods.
+
+### Decision cutoff
+
+The current prototype assumes a decision cutoff of **16:00 UK local time on the day before delivery**.
+
+This is an analytical assumption for the prototype, not a claim that 16:00 is an official procurement deadline.
+
+### Hourly actual generation
+
+FUELHH actual generation is provided at 30-minute resolution, while the forecast data used in this prototype is hourly.
+
+The application aggregates actual generation into hourly values by averaging the two half-hourly readings for each hour. Incomplete hours are excluded rather than filled with zero.
+
+### Forecast error
+
+The forecast error is calculated as:
+
+`Forecast error = Forecast generation − Actual generation`
+
+A positive error indicates that the forecast overestimated generation; a negative error indicates underestimation.
+
+### Accuracy metrics
+
+- **MAE:** Average absolute forecast error, measured in MW.
+- **RMSE:** Square root of the average squared forecast error, measured in MW. Larger errors have greater influence.
+- **Bias:** Average signed forecast error, measured in MW. It indicates systematic over- or under-forecasting.
+
+MAPE is not used because actual generation can be zero or close to zero.
+
+## Data Limitations and Assumptions
+
+- The analysis is limited to national-level wind generation from Elexon BMRS.
+- The evaluation period covers January 2026 delivery dates.
+- Forecasts are selected using publication timestamps to prevent look-ahead bias.
+- Actual generation is used as the retrospective evaluation reference; it is not restricted by the forecast decision cutoff.
+- Half-hourly actual generation is averaged into hourly values to align with the hourly forecast data.
+- Incomplete actual hours are excluded, not treated as zero.
+- Forecast accuracy alone does not determine an optimal electricity procurement decision. Demand, other generation sources, market prices, and operational constraints are outside this prototype's scope.
+
+## Running Locally with Docker
+
+### Prerequisites
+
+- Docker Engine
+- Docker Compose
+
+### Start the application
+
+From the repository root:
+
+```bash
+docker compose up --build -d
+```
+
+The frontend and backend will start as separate services.
+
+| Service | URL |
+|---|---|
+| Dashboard | http://localhost:5173 |
+| API | http://localhost:8000 |
+| API health check | http://localhost:8000/api/health |
+| API documentation | http://localhost:8000/docs |
+
+### Stop the application
+
+```bash
+docker compose down
+```
+
+### View logs
+
+```bash
+docker compose logs -f
+```
+
+### Rebuild containers
+
+```bash
+docker compose up --build -d
+```
+
+## Running Tests
+
+The backend test suite can be run locally using a Python virtual environment.
+
+Run these commands from the repository root. The virtual environment and dependencies will be installed under `backend/.venv/`.
+
+```bash
+cd backend
+
+python3 -m venv .venv
+source .venv/bin/activate
+
+pip install -r requirements.txt
+
+python -m pytest -v
+ruff check app tests
+```
+
+The test suite covers hourly actual aggregation, forecast selection, forecast error calculations, accuracy metrics, and API responses.
+
+## Deployment
+
+**Live application:** To be added after deployment.
+
+The intended deployment architecture is:
+
+- Frontend: Vercel.
+- Backend: A separately hosted FastAPI service.
+- Data: January 2026 datasets included in the backend deployment image.
+
+The deployed frontend will use a configured `VITE_API_BASE_URL` pointing to the public backend API.
+
+## AI Assistance Disclosure
+
+AI tools were used during development for planning, technical guidance, implementation assistance, debugging, and documentation refinement. All generated or suggested code was reviewed and tested as part of the development process.

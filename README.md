@@ -242,15 +242,30 @@ The test suite covers hourly actual aggregation, forecast selection, forecast er
 
 ## Deployment
 
-**Live application:** To be added after deployment.
+The application is deployed as a two-part client-server system:
 
-The intended deployment architecture is:
+- **Frontend:** React + Vite, hosted on Vercel.
+- **Backend:** FastAPI, hosted on Render using Docker.
+- **Data:** Curated January 2026 Elexon WINDFOR and FUELHH datasets are bundled with the backend image.
 
-- Frontend: Vercel.
-- Backend: A separately hosted FastAPI service.
-- Data: January 2026 datasets included in the backend deployment image.
+### Live Application
 
-The deployed frontend will use a configured `VITE_API_BASE_URL` pointing to the public backend API.
+- **Dashboard:** https://wind-forecast-frontend-six.vercel.app
+- **Backend API:** https://wind-forecast-api-6v9b.onrender.com
+- **API Health Check:** https://wind-forecast-api-6v9b.onrender.com/api/health
+- **API Documentation:** https://wind-forecast-api-6v9b.onrender.com/docs
+
+The backend may take some time to respond after a period of inactivity because the hosting platform's free instance can spin down.
+
+### Deployment Configuration
+
+The frontend uses the `VITE_API_BASE_URL` environment variable to identify the backend API.
+
+The backend uses:
+- `PORT` to configure the HTTP listening port.
+- `CORS_ORIGINS` to configure the permitted frontend origins.
+
+See the local setup instructions above for running the application using Docker Compose.
 
 ## AI Assistance Disclosure
 
